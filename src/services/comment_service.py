@@ -117,3 +117,14 @@ class CommentService:
         # Duygu analizi
         self.analyze_sentiment(f'{dosya_adi}_processed')
 
+
+def main():
+    dosya_adi = "CampusX-official_comments"
+    yorum_servisi = CommentService('./datasets/{0}.csv'.format(dosya_adi))
+    
+    # Tek seferde tüm işlemleri gerçekleştir
+    yorum_servisi.process_all_steps(dosya_adi)
+
+if __name__ == "__main__":
+    main()
+

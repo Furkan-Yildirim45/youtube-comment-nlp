@@ -75,6 +75,6 @@ class TrainNeuralNetwork:
         model.save_model()
 
 if __name__ == "__main__":
-    file_name = "CampusX-translated_comments_processed"  # Burada dosya adını belirliyoruz
+    file_name = "CampusX-official_comments_processed"  # Burada dosya adını belirliyoruz
     trainer = TrainNeuralNetwork(file_name=file_name)  # Dosya adı parametre olarak veriliyor
     trainer.train_and_evaluate()

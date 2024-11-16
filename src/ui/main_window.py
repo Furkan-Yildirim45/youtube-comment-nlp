@@ -1,17 +1,18 @@
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QComboBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QPushButton, QFileDialog, QInputDialog
+from PyQt5.QtWidgets import QApplication, QHeaderView, QWidget, QLabel, QComboBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QPushButton, QFileDialog, QInputDialog
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
 
 from controller.ui_controller import UIController
 
 class MainWindow(QWidget):
-    def __init__(self, playlist_csv, video_csv):
+    def __init__(self, playlist_csv, video_csv, model_path):
         super().__init__()
         self.playlist_csv = playlist_csv
         self.video_csv = video_csv
         self.setWindowTitle("YouTube Yorum Sınıflandırıcı")
         self.setGeometry(100, 100, 800, 600)
-        self.ui_controller = UIController(playlist_csv,video_csv)
-
+        self.ui_controller = UIController(playlist_csv, video_csv, model_path)
+ 
         # Arayüz elemanları
         self.init_ui()
         
@@ -44,9 +45,9 @@ class MainWindow(QWidget):
         self.load_comments_button = QPushButton("Yorumları Yükle", self)
         self.load_comments_button.clicked.connect(self.load_comments)
 
-
         # Sınıflandırma butonu
         self.classify_button = QPushButton("Yorumları Sınıflandır", self)
+        self.classify_button.clicked.connect(self.classify_comments)  # Sınıflandırma işlevini bağla
 
         layout = QVBoxLayout()
         layout.addWidget(self.title_label)
@@ -58,8 +59,14 @@ class MainWindow(QWidget):
         layout.addWidget(self.comments_table)
         layout.addWidget(self.classify_button)
         self.setLayout(layout)
+        
+        self.comments_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # 1 numaralı sütun "Yorum Metni"
 
-    def update_video_dropdown(self,index):
+    def update_table_headers_with_sentiment(self):
+        self.comments_table.setColumnCount(5)  # Duygu Durumu eklemesiyle sütun sayısını artır
+        self.comments_table.setHorizontalHeaderLabels(["Yorum ID", "Yorum Metni", "Beğeni Sayısı", "Yayınlanma Tarihi", "Duygu Durumu"])
+
+    def update_video_dropdown(self, index):
         try:
             selected_playlist_id = self.playlist_dropdown.itemData(index)
             print(f"Selected Playlist ID: {selected_playlist_id}")
@@ -83,6 +90,9 @@ class MainWindow(QWidget):
             comments = self.ui_controller.load_comments_by_video(selected_video_id)
             print(f"Comments: {comments}")  # Alınan yorumları yazdır
 
+            # Duygu durumu sütununu sıfırlayalım (5. sütun)
+            self.comments_table.setColumnCount(4)  # Duygu durumu sütunu (5. sütun) kaldırıldı
+
             # Yorumları tabloya ekle
             self.comments_table.setRowCount(len(comments))  # Tabloyu, yorum sayısına göre ayarla
 
@@ -92,24 +102,28 @@ class MainWindow(QWidget):
                 self.comments_table.setItem(row, 2, QTableWidgetItem(str(comment['likeCount'])))  # Beğeni Sayısı
                 self.comments_table.setItem(row, 3, QTableWidgetItem(comment['publishedAt']))  # Yayınlanma Tarihi
 
+    def classify_comments(self):
+        selected_video_id = self.video_dropdown.currentData()
+        if selected_video_id:
+            comments = self.ui_controller.load_comments_by_video(selected_video_id)
+            sentiments = self.ui_controller.classify_comments(comments)
 
-    # def classify_comments(self):
-    #     for row in range(self.comments_table.rowCount()):
-    #         comment = self.comments_table.item(row, 0).text()
-    #         sentiment = self.get_sentiment(comment)
-    #         self.comments_table.setItem(row, 1, QTableWidgetItem(sentiment))
-    #         if sentiment == "Olumlu":
-    #             self.comments_table.item(row, 1).setBackground(Qt.green)
-    #         elif sentiment == "Olumsuz":
-    #             self.comments_table.item(row, 1).setBackground(Qt.red)
-    #         else:
-    #             self.comments_table.item(row, 1).setBackground(Qt.gray)
-    #     self.comments_table.setRowCount(0)
+            # Tabloya 5. sütunu ekleyelim
+            self.update_table_headers_with_sentiment()  # Duygu Durumu sütununu ekle
 
-    # def get_sentiment(self, comment):
-    #     if "kötü" in comment:
-    #         return "Olumsuz"
-    #     elif "güzel" in comment:
-    #         return "Olumlu"
-    #     return "Nötr"
+            # Sonuçları tabloya ekleyelim
+            for row, sentiment in enumerate(sentiments):
+                # 5. sütunda (index 4) hücreyi ekleyin
+                item = self.comments_table.item(row, 4)
+                if item is None:  # Eğer hücre mevcut değilse
+                    item = QTableWidgetItem(sentiment)
+                    self.comments_table.setItem(row, 4, item)
 
+                # Renk değiştirme işlemini burada yapın
+                item = self.comments_table.item(row, 4)  # Duygu Durumu sütununu al
+                if sentiment == "Pozitif":
+                    item.setBackground(QColor(0, 255, 0))  # Yeşil
+                elif sentiment == "Negatif":
+                    item.setBackground(QColor(255, 0, 0))  # Kırmızı
+                else:
+                    item.setBackground(QColor(128, 128, 128))  # Gri
