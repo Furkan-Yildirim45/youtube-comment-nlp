@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import QApplication, QHeaderView, QWidget, QLabel, QComboBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QPushButton, QFileDialog, QInputDialog
+from PyQt5.QtWidgets import QMessageBox, QHeaderView, QWidget, QLabel, QComboBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QPushButton, QFileDialog, QInputDialog
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QColor
-
+from PyQt5.QtWidgets import QDialog, QLabel, QVBoxLayout
+from PyQt5.QtCore import Qt, QTimer
 from controller.ui_controller import UIController
 
 class MainWindow(QWidget):
@@ -102,24 +103,30 @@ class MainWindow(QWidget):
                 self.comments_table.setItem(row, 2, QTableWidgetItem(str(comment['likeCount'])))  # Beğeni Sayısı
                 self.comments_table.setItem(row, 3, QTableWidgetItem(comment['publishedAt']))  # Yayınlanma Tarihi
 
+
     def classify_comments(self):
         selected_video_id = self.video_dropdown.currentData()
         if selected_video_id:
+            # "Duygu durumu analiz ediliyor..." mesajını göstermek için bir QDialog açalım
+            analysis_dialog = AnalysisDialog()
+            analysis_dialog.show()
+
+            # Sınıflandırma işlemini başlat
+            selected_video_id = self.video_dropdown.currentData()
             comments = self.ui_controller.load_comments_by_video(selected_video_id)
             sentiments = self.ui_controller.classify_comments(comments)
 
             # Tabloya 5. sütunu ekleyelim
-            self.update_table_headers_with_sentiment()  # Duygu Durumu sütununu ekle
+            self.comments_table.setColumnCount(5)  # 5 sütun olmalı
 
             # Sonuçları tabloya ekleyelim
             for row, sentiment in enumerate(sentiments):
-                # 5. sütunda (index 4) hücreyi ekleyin
                 item = self.comments_table.item(row, 4)
                 if item is None:  # Eğer hücre mevcut değilse
                     item = QTableWidgetItem(sentiment)
                     self.comments_table.setItem(row, 4, item)
 
-                # Renk değiştirme işlemini burada yapın
+                # Renk değiştirme işlemini burada yapalım
                 item = self.comments_table.item(row, 4)  # Duygu Durumu sütununu al
                 if sentiment == "Pozitif":
                     item.setBackground(QColor(0, 255, 0))  # Yeşil
@@ -127,3 +134,47 @@ class MainWindow(QWidget):
                     item.setBackground(QColor(255, 0, 0))  # Kırmızı
                 else:
                     item.setBackground(QColor(128, 128, 128))  # Gri
+
+            # Sınıflandırma işlemi bittiğinde QDialog'u kapat
+            analysis_dialog.set_message("Duygu durumu analizi tamamlandı!")
+            
+            # Diyaloğu otomatik olarak kapatalım, işlem bitince
+            QTimer.singleShot(500, analysis_dialog.close_dialog)  # 2 saniye sonra diyalog kapanır
+
+
+
+
+
+from PyQt5.QtWidgets import QDialog, QLabel, QVBoxLayout
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QColor
+
+class AnalysisDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Duygu Durumu Analiz Ediliyor...")
+        self.setGeometry(50, 50, 400, 50)  # Boyut ayarlandı
+
+        # Ana içerik
+        self.label = QLabel("Duygu durumu analiz ediliyor...", self)
+        self.label.setAlignment(Qt.AlignCenter)
+
+        # Metin rengini değiştirelim
+        self.label.setStyleSheet("color: black; font-size: 14px; font-weight: bold;")
+
+        # Arka plan rengini değiştirelim
+        self.setStyleSheet("background-color: lightyellow;")  # Arka planı açık sarı yapıyoruz
+
+        # Layout ayarları
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
+        # QDialog boyutunu ayarladık
+        self.resize(400, 50)  # Boyutları değiştirdik
+
+    def set_message(self, message):
+        self.label.setText(message)  # Mesajı değiştirebiliriz
+
+    def close_dialog(self):
+        self.accept()  # Diyaloğu kapat
